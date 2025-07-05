@@ -5,7 +5,7 @@ dotenv.config();
 const app = express();
 
 app.get('/', (req, res) => {
-    res.send(process.env.FOO);
+    res.send(`This is a friendly little message: ${process.env.FOO}`);
 });
 
 app.listen(process.env.PORT, () => {
