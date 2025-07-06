@@ -1,7 +1,8 @@
 import dotenv from 'dotenv';
 import express from 'express';
 
-dotenv.config();
+dotenv.config({ path: `.env.local` })
+
 const app = express();
 
 app.get('/', (req, res) => {

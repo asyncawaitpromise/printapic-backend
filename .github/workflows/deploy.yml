@@ -48,7 +48,7 @@ jobs:
 
       - name: 'Create env file'
         run: |
-          touch .env
-          echo FOO="${{ secrets.FOO }}" >> .env
-          echo PORT=${{ secrets.PORT }} >> .env
-          cat .env
+          touch .env.local
+          echo FOO="${{ secrets.FOO }}" >> .env.local
+          echo PORT=${{ secrets.PORT }} >> .env.local
+          cat .env.local
