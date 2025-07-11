@@ -13,6 +13,7 @@ app.get('/', (req, res) => {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>PrintAPic Backend</title>
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap" rel="stylesheet">
         <style>
             * {
                 margin: 0;
@@ -22,7 +23,9 @@ app.get('/', (req, res) => {
             
             body {
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: linear-gradient(135deg, #ffd1dc 0%, #cfe7ff 100%);
+                background-size: 250% 250%;
+                animation: gradientAnimation 12s ease infinite;
                 min-height: 100svh;
                 display: flex;
                 align-items: center;
@@ -41,9 +44,11 @@ app.get('/', (req, res) => {
                 max-width: 500px;
                 width: 100%;
                 border: 1px solid rgba(255, 255, 255, 0.2);
+                animation: fadeIn 0.9s ease-in-out;
             }
             
             .message {
+                font-family: 'Poppins', sans-serif;
                 font-size: 28px;
                 font-weight: 600;
                 color: #2d3748;
@@ -60,6 +65,11 @@ app.get('/', (req, res) => {
                 border-left: 4px solid #667eea;
                 margin-top: 20px;
                 word-break: break-word;
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+            }
+            .env-value:hover {
+                transform: scale(1.03);
+                box-shadow: 0 6px 12px rgba(0,0,0,0.12);
             }
             
             .footer {
@@ -73,7 +83,7 @@ app.get('/', (req, res) => {
                 display: inline-block;
                 width: 12px;
                 height: 12px;
-                background: #48bb78;
+                background: #ff6b81;
                 border-radius: 50%;
                 margin-right: 8px;
                 animation: pulse 2s infinite;
@@ -83,6 +93,17 @@ app.get('/', (req, res) => {
                 0% { opacity: 1; }
                 50% { opacity: 0.5; }
                 100% { opacity: 1; }
+            }
+
+            @keyframes gradientAnimation {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+            }
+
+            @keyframes fadeIn {
+                0% { opacity: 0; transform: translateY(20px); }
+                100% { opacity: 1; transform: translateY(0); }
             }
             
             /* Mobile optimizations */
