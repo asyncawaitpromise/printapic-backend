@@ -50,4 +50,7 @@ jobs:
         run: |
           touch .env.local
           echo BFL_KEY="${{ secrets.BFL_KEY }}" >> .env.local
+          echo PB_SUPER_PASS="${{ secrets.PB_SUPER_PASS }}" >> .env.local
+          echo PB_SUPER_EMAIL="${{ secrets.PB_SUPER_EMAIL }}" >> .env.local
+          echo POCKETBASE_URL="${{ secrets.POCKETBASE_URL }}" >> .env.local
           cat .env.local
