@@ -69,7 +69,7 @@ export async function verifyUserToken(token) {
     }
     
     console.log(`[${verifyId}] 🔄 Calling authRefresh to verify token...`);
-    const result = await pb.collection('users').authRefresh();
+    const result = await pb.collection('printapic_users').authRefresh();
     console.log(`[${verifyId}] ✅ Token verification successful`);
     console.log(`[${verifyId}] 👤 User verified: ${result.record.id} (${result.record.email})`);
     
