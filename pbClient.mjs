@@ -1,4 +1,7 @@
 import PocketBase from 'pocketbase';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: `.env.local` });
 
 const baseUrl = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
 
@@ -16,12 +19,12 @@ async function authenticateAdmin() {
   }
   
   try {
-    console.log('🔐 Authenticating admin user...');
-    await adminPb.admins.authWithPassword(adminEmail, adminPassword);
-    console.log('✅ Admin authentication successful');
+    console.log('🔐 Authenticating superuser...');
+    await adminPb.collection('_superusers').authWithPassword(adminEmail, adminPassword);
+    console.log('✅ Superuser authentication successful');
   } catch (error) {
-    console.error('❌ Admin authentication failed:', error);
-    throw new Error(`Admin authentication failed: ${error.message}`);
+    console.error('❌ Superuser authentication failed:', error);
+    throw new Error(`Superuser authentication failed: ${error.message}`);
   }
 }
 

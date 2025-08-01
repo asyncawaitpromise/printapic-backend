@@ -1,4 +1,7 @@
 import { verifyUserToken } from '../pbClient.mjs';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: `.env.local` })
 
 export async function requireAuth(req, res, next) {
   const authId = `auth_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
