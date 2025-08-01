@@ -1,8 +1,11 @@
-import { adminPb } from '../pbClient.mjs';
+import { adminPb, ensureAdminAuth } from '../pbClient.mjs';
 
 export async function processImage(photoId, operation, user, requestId = 'unknown') {
     try {
         console.log(`[${requestId}] 🔍 Verifying photo ${photoId} exists and belongs to user ${user.id}`);
+        
+        // Ensure admin is authenticated before database operations
+        await ensureAdminAuth();
         
         // Verify the photo exists and belongs to the user
         const photo = await adminPb.collection('printapic_photos').getOne(photoId);
@@ -24,6 +27,7 @@ export async function processImage(photoId, operation, user, requestId = 'unknow
 
         // Create an edit record in pending status
         console.log(`[${requestId}] 💾 Creating edit record...`);
+        await ensureAdminAuth();
         const editRecord = await adminPb.collection('printapic_edits').create({
             user: user.id,
             photo: photoId,
@@ -54,6 +58,7 @@ async function processImageAsync(photo, editId, user, requestId = 'unknown') {
         console.log(`[${requestId}] 🔄 Background processing started for edit ${editId}`);
         
         // Update status to processing
+        await ensureAdminAuth();
         await adminPb.collection('printapic_edits').update(editId, {
             status: 'processing'
         });
@@ -76,6 +81,7 @@ async function processImageAsync(photo, editId, user, requestId = 'unknown') {
         formData.append('status', 'done');
         formData.append('completed', new Date().toISOString());
 
+        await ensureAdminAuth();
         await adminPb.collection('printapic_edits').update(editId, formData);
         console.log(`[${requestId}] ✅ Edit record updated with result image`);
         
@@ -96,6 +102,7 @@ async function processImageAsync(photo, editId, user, requestId = 'unknown') {
         
         // Update status to failed
         console.log(`[${requestId}] 📝 Updating edit status to 'failed'`);
+        await ensureAdminAuth();
         await adminPb.collection('printapic_edits').update(editId, {
             status: 'failed'
         });
@@ -171,6 +178,7 @@ async function deductTokens(userId, amount, referenceId, requestId = 'unknown') 
         console.log(`[${requestId}] 💰 Getting current token balance for user ${userId}`);
         
         // Get current user tokens
+        await ensureAdminAuth();
         const user = await adminPb.collection('printapic_users').getOne(userId);
         console.log(`[${requestId}] 📊 Current token balance: ${user.tokens}`);
         
@@ -184,6 +192,7 @@ async function deductTokens(userId, amount, referenceId, requestId = 'unknown') 
         // Update user tokens
         const newBalance = user.tokens - amount;
         console.log(`[${requestId}] 📝 Updating user token balance from ${user.tokens} to ${newBalance}`);
+        await ensureAdminAuth();
         await adminPb.collection('printapic_users').update(userId, {
             tokens: newBalance
         });
@@ -191,6 +200,7 @@ async function deductTokens(userId, amount, referenceId, requestId = 'unknown') 
         
         // Create transaction record
         console.log(`[${requestId}] 📝 Creating token transaction record`);
+        await ensureAdminAuth();
         const transaction = await adminPb.collection('printapic_token_transactions').create({
             user: userId,
             amount: -amount,

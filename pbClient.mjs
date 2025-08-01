@@ -5,8 +5,38 @@ const baseUrl = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
 // Shared admin client (privileged operations)
 export const adminPb = new PocketBase(baseUrl);
 
-if (process.env.POCKETBASE_ADMIN_TOKEN) {
-  adminPb.authStore.save(process.env.POCKETBASE_ADMIN_TOKEN, {});
+// Authenticate admin using email/password
+async function authenticateAdmin() {
+  const adminEmail = process.env.PB_SUPER_EMAIL;
+  const adminPassword = process.env.PB_SUPER_PASS;
+  
+  if (!adminEmail || !adminPassword) {
+    console.error('❌ Missing PB_SUPER_EMAIL or PB_SUPER_PASS environment variables');
+    throw new Error('Admin credentials not configured');
+  }
+  
+  try {
+    console.log('🔐 Authenticating admin user...');
+    await adminPb.admins.authWithPassword(adminEmail, adminPassword);
+    console.log('✅ Admin authentication successful');
+  } catch (error) {
+    console.error('❌ Admin authentication failed:', error);
+    throw new Error(`Admin authentication failed: ${error.message}`);
+  }
+}
+
+// Authenticate admin on startup
+authenticateAdmin().catch(console.error);
+
+/**
+ * Ensure admin is authenticated before making privileged operations
+ * @returns {Promise<void>}
+ */
+export async function ensureAdminAuth() {
+  if (!adminPb.authStore.isValid) {
+    console.log('🔄 Admin token expired, re-authenticating...');
+    await authenticateAdmin();
+  }
 }
 
 /**

@@ -35,7 +35,7 @@ app.get("/health", (req, res) => {
 
 // --- Authenticated routes ---
 import { requireAuth } from "./middlewares/requireAuth.mjs";
-import { adminPb } from "./pbClient.mjs";
+import { adminPb, ensureAdminAuth } from "./pbClient.mjs";
 
 app.get("/me", requireAuth, (req, res) => {
     res.json({ user: req.user });
@@ -84,6 +84,7 @@ app.get("/edit-status/:editId", requireAuth, async (req, res) => {
         const { editId } = req.params;
         
         console.log(`[${requestId}] 🔍 Fetching edit record: ${editId}`);
+        await ensureAdminAuth();
         const edit = await adminPb.collection('printapic_edits').getOne(editId);
         console.log(`[${requestId}] 📄 Edit found - Status: ${edit.status}, Owner: ${edit.user}`);
         
