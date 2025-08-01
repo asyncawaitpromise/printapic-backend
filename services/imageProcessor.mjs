@@ -14,20 +14,39 @@ export async function processImage(photoId, operation, user, requestId = 'unknow
             console.log(`[${requestId}] 📸 Photo found: ${photo.id}, owner: ${photo.user}`);
         } catch (error) {
             if (error.status === 404) {
-                console.error(`[${requestId}] ❌ Photo not found: ${photoId}`);
+                console.error(`[${requestId}] ❌ Photo record not found in 'printapic_photos' collection: ${photoId}`);
+                console.error(`[${requestId}] 🔍 This means the record ID '${photoId}' does not exist as a photo record`);
                 
                 // Let's check what photos exist for this user
                 try {
-                    const userPhotos = await adminPb.collection('printapic_photos').getList(1, 10, {
+                    const userPhotos = await adminPb.collection('printapic_photos').getList(1, 20, {
                         filter: `user = "${user.id}"`
                     });
-                    console.log(`[${requestId}] 📋 Available photos for user ${user.id}:`, 
-                        userPhotos.items.map(p => ({ id: p.id, created: p.created })));
+                    console.log(`[${requestId}] 📋 User ${user.id} has ${userPhotos.totalItems} total photos`);
+                    console.log(`[${requestId}] 📸 Available photo records:`, 
+                        userPhotos.items.map(p => ({ 
+                            id: p.id, 
+                            created: p.created,
+                            hasImage: !!p.image,
+                            imageFileName: p.image || 'no-image'
+                        })));
+                    
+                    // Also check if there are ANY photos in the collection (maybe wrong user?)
+                    const allPhotos = await adminPb.collection('printapic_photos').getList(1, 5);
+                    console.log(`[${requestId}] 🌍 Total photos in database: ${allPhotos.totalItems}`);
+                    if (allPhotos.items.length > 0) {
+                        console.log(`[${requestId}] 📊 Sample photo records:`, 
+                            allPhotos.items.map(p => ({
+                                id: p.id,
+                                owner: p.user,
+                                created: p.created
+                            })));
+                    }
                 } catch (listError) {
-                    console.error(`[${requestId}] ❌ Failed to list user photos:`, listError);
+                    console.error(`[${requestId}] ❌ Failed to list photos:`, listError);
                 }
                 
-                throw new Error(`Photo with ID '${photoId}' not found. Please check that the photo exists and the ID is correct.`);
+                throw new Error(`Photo record with ID '${photoId}' not found in database. This should be a PocketBase record ID, not a file ID. Check that the photo was created properly and you're using the correct record ID.`);
             }
             throw error;
         }
