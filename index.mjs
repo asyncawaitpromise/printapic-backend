@@ -25,7 +25,7 @@ app.use(cors({
 app.use(express.json());
 
 app.get("/", (req, res) => {
-    res.send("v0.0.3");
+    res.send("v0.0.4");
 });
 
 // Health-check

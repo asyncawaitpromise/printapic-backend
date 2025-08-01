@@ -16,12 +16,42 @@ if (process.env.POCKETBASE_ADMIN_TOKEN) {
  * @throws {Error} If the token is invalid/expired.
  */
 export async function verifyUserToken(token) {
+  const verifyId = `verify_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  console.log(`[${verifyId}] 🔑 Starting token verification`);
+  console.log(`[${verifyId}] 🌐 PocketBase URL: ${baseUrl}`);
+  console.log(`[${verifyId}] 🎯 Token length: ${token?.length || 0} characters`);
+  
   const pb = new PocketBase(baseUrl);
-  pb.authStore.save(token, {});
+  
   try {
-    const { record } = await pb.collection('users').authRefresh();
-    return record;
+    console.log(`[${verifyId}] 💾 Saving token to authStore...`);
+    pb.authStore.save(token, {});
+    
+    console.log(`[${verifyId}] 🔍 AuthStore isValid: ${pb.authStore.isValid}`);
+    console.log(`[${verifyId}] 👤 AuthStore model: ${pb.authStore.model?.id || 'none'}`);
+    
+    if (!pb.authStore.isValid) {
+      console.log(`[${verifyId}] ❌ AuthStore validation failed`);
+      throw new Error('Token is not valid according to authStore');
+    }
+    
+    console.log(`[${verifyId}] 🔄 Calling authRefresh to verify token...`);
+    const result = await pb.collection('users').authRefresh();
+    console.log(`[${verifyId}] ✅ Token verification successful`);
+    console.log(`[${verifyId}] 👤 User verified: ${result.record.id} (${result.record.email})`);
+    
+    return result.record;
+  } catch (error) {
+    console.error(`[${verifyId}] ❌ Token verification failed:`, error);
+    console.error(`[${verifyId}] 📊 Error details:`, {
+      message: error.message,
+      status: error.status,
+      data: error.data,
+      name: error.name
+    });
+    throw new Error(`Token verification failed: ${error.message}`);
   } finally {
+    console.log(`[${verifyId}] 🧹 Clearing authStore`);
     pb.authStore.clear();
   }
 }
