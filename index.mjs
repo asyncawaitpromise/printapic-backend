@@ -8,7 +8,16 @@ const app = express();
 
 // CORS middleware
 app.use(cors({
-  origin: ['http://127.0.0.1:3000', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://localhost:5173'],
+  origin: [
+    'http://127.0.0.1:3000', 
+    'http://localhost:3000', 
+    'http://127.0.0.1', 
+    'http://localhost', 
+    'http://127.0.0.1:5173', 
+    'http://localhost:5173',
+    'http://printapic.ezez.win', 
+    'https://printapic.ezez.win'
+],
   credentials: true
 }));
 
@@ -16,7 +25,7 @@ app.use(cors({
 app.use(express.json());
 
 app.get("/", (req, res) => {
-    res.send("v1.0.1");
+    res.send("v0.0.2");
 });
 
 // Health-check
