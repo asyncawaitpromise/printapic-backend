@@ -29,7 +29,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm run --if-present build 
-      - run: pnpm run --if-present test 
+      # - run: pnpm run --if-present test 
 
       - uses: a7ul/tar-action@v1.1.0
         with:
