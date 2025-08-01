@@ -7,9 +7,30 @@ export async function processImage(photoId, operation, user, requestId = 'unknow
         // Ensure admin is authenticated before database operations
         await ensureAdminAuth();
         
-        // Verify the photo exists and belongs to the user
-        const photo = await adminPb.collection('printapic_photos').getOne(photoId);
-        console.log(`[${requestId}] 📸 Photo found: ${photo.id}, owner: ${photo.user}`);
+        let photo;
+        try {
+            // Verify the photo exists and belongs to the user
+            photo = await adminPb.collection('printapic_photos').getOne(photoId);
+            console.log(`[${requestId}] 📸 Photo found: ${photo.id}, owner: ${photo.user}`);
+        } catch (error) {
+            if (error.status === 404) {
+                console.error(`[${requestId}] ❌ Photo not found: ${photoId}`);
+                
+                // Let's check what photos exist for this user
+                try {
+                    const userPhotos = await adminPb.collection('printapic_photos').getList(1, 10, {
+                        filter: `user = "${user.id}"`
+                    });
+                    console.log(`[${requestId}] 📋 Available photos for user ${user.id}:`, 
+                        userPhotos.items.map(p => ({ id: p.id, created: p.created })));
+                } catch (listError) {
+                    console.error(`[${requestId}] ❌ Failed to list user photos:`, listError);
+                }
+                
+                throw new Error(`Photo with ID '${photoId}' not found. Please check that the photo exists and the ID is correct.`);
+            }
+            throw error;
+        }
         
         // Check if user owns the photo
         if (photo.user !== user.id) {

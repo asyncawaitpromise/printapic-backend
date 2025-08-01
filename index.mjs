@@ -33,6 +33,41 @@ app.get("/health", (req, res) => {
     res.json({ status: "ok" });
 });
 
+// Debug endpoint to list available collections and photos
+app.get("/debug/collections", requireAuth, async (req, res) => {
+    const debugId = `debug_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[${debugId}] 🔍 Debug collections request from user ${req.user.id}`);
+    
+    try {
+        await ensureAdminAuth();
+        
+        // List user's photos
+        const userPhotos = await adminPb.collection('printapic_photos').getList(1, 20, {
+            filter: `user = "${req.user.id}"`
+        });
+        
+        console.log(`[${debugId}] 📋 Found ${userPhotos.items.length} photos for user`);
+        
+        res.json({
+            user: {
+                id: req.user.id,
+                email: req.user.email
+            },
+            photos: userPhotos.items.map(photo => ({
+                id: photo.id,
+                created: photo.created,
+                updated: photo.updated,
+                user: photo.user,
+                hasImage: !!photo.image
+            })),
+            totalPhotos: userPhotos.totalItems
+        });
+    } catch (error) {
+        console.error(`[${debugId}] ❌ Debug error:`, error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // --- Authenticated routes ---
 import { requireAuth } from "./middlewares/requireAuth.mjs";
 import { adminPb, ensureAdminAuth } from "./pbClient.mjs";
