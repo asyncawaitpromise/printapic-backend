@@ -173,23 +173,33 @@ async function callBFLAPI(imageUrl, requestId = 'unknown') {
         const imageBuffer = await imageResponse.arrayBuffer();
         console.log(`[${requestId}] ✅ Image fetched successfully, size: ${imageBuffer.byteLength} bytes`);
         
-        // Create form data for BFL API
-        console.log(`[${requestId}] 📦 Creating form data for BFL API`);
-        const formData = new FormData();
-        formData.append('image', new Blob([imageBuffer]), 'input.jpg');
-        formData.append('prompt', prompt);
-        formData.append('model', 'flux-kontext');
-        console.log(`[${requestId}] ✅ Form data created with prompt: "${prompt}"`);
+        // Convert image to base64
+        console.log(`[${requestId}] 🔄 Converting image to base64...`);
+        const base64Image = Buffer.from(imageBuffer).toString('base64');
+        console.log(`[${requestId}] ✅ Image converted to base64, length: ${base64Image.length}`);
+        
+        // Prepare JSON payload for BFL API
+        const payload = {
+            prompt: prompt,
+            input_image: base64Image,
+            seed: 42,
+            aspect_ratio: "1:1",
+            output_format: "jpeg",
+            prompt_upsampling: false,
+            safety_tolerance: 2
+        };
         
         // Call BFL API
-        console.log(`[${requestId}] 🚀 Making API call to BFL...`);
+        console.log(`[${requestId}] 🚀 Making API call to BFL flux-kontext-pro...`);
+        console.log(`[${requestId}] 📝 Using prompt: "${prompt}"`);
         const startTime = Date.now();
-        const response = await fetch('https://api.bfl.ml/v1/flux-kontext', {
+        const response = await fetch('https://api.bfl.ai/v1/flux-kontext-pro', {
             method: 'POST',
             headers: {
-                'X-Key': BFL_KEY
+                'x-key': BFL_KEY,
+                'Content-Type': 'application/json'
             },
-            body: formData
+            body: JSON.stringify(payload)
         });
         const endTime = Date.now();
         console.log(`[${requestId}] ⏱️ BFL API call took ${endTime - startTime}ms`);
@@ -201,16 +211,86 @@ async function callBFLAPI(imageUrl, requestId = 'unknown') {
             throw new Error(`BFL API error: ${response.status} ${response.statusText}`);
         }
         
-        console.log(`[${requestId}] ✅ BFL API response successful: ${response.status}`);
+        const responseData = await response.json();
+        console.log(`[${requestId}] ✅ BFL API response successful:`, responseData);
         
-        const result = await response.arrayBuffer();
-        console.log(`[${requestId}] ✅ Processed image received, size: ${result.byteLength} bytes`);
-        return Buffer.from(result);
+        if (!responseData.id || !responseData.polling_url) {
+            console.error(`[${requestId}] ❌ Invalid response format from BFL API`);
+            throw new Error('Invalid response format from BFL API');
+        }
+        
+        // Poll for results
+        console.log(`[${requestId}] 🔄 Polling for results at: ${responseData.polling_url}`);
+        return await pollForResult(responseData.polling_url, BFL_KEY, requestId);
         
     } catch (error) {
         console.error(`[${requestId}] ❌ BFL API call failed:`, error);
         throw error;
     }
+}
+
+async function pollForResult(pollingUrl, apiKey, requestId, maxAttempts = 30) {
+    console.log(`[${requestId}] 🔄 Starting polling for result...`);
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            console.log(`[${requestId}] 📡 Polling attempt ${attempt}/${maxAttempts}`);
+            
+            const response = await fetch(pollingUrl, {
+                method: 'GET',
+                headers: {
+                    'x-key': apiKey
+                }
+            });
+            
+            if (!response.ok) {
+                console.error(`[${requestId}] ❌ Polling error: ${response.status} ${response.statusText}`);
+                throw new Error(`Polling error: ${response.status} ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log(`[${requestId}] 📊 Polling response:`, data.status || 'unknown status');
+            
+            if (data.status === 'Ready') {
+                console.log(`[${requestId}] ✅ Image processing complete!`);
+                
+                if (!data.result || !data.result.sample) {
+                    console.error(`[${requestId}] ❌ No result image in response`);
+                    throw new Error('No result image in response');
+                }
+                
+                // Download the result image
+                console.log(`[${requestId}] 📥 Downloading result image...`);
+                const imageResponse = await fetch(data.result.sample);
+                
+                if (!imageResponse.ok) {
+                    console.error(`[${requestId}] ❌ Failed to download result image: ${imageResponse.status}`);
+                    throw new Error(`Failed to download result image: ${imageResponse.status}`);
+                }
+                
+                const imageBuffer = await imageResponse.arrayBuffer();
+                console.log(`[${requestId}] ✅ Result image downloaded, size: ${imageBuffer.byteLength} bytes`);
+                return Buffer.from(imageBuffer);
+            } else if (data.status === 'Error') {
+                console.error(`[${requestId}] ❌ BFL processing failed with error`);
+                throw new Error('BFL processing failed');
+            }
+            
+            // Still processing, wait before next attempt
+            console.log(`[${requestId}] ⏳ Still processing, waiting 2 seconds...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+        } catch (error) {
+            console.error(`[${requestId}] ❌ Polling attempt ${attempt} failed:`, error);
+            if (attempt === maxAttempts) {
+                throw error;
+            }
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+    }
+    
+    console.error(`[${requestId}] ❌ Polling timeout after ${maxAttempts} attempts`);
+    throw new Error('Polling timeout - image processing took too long');
 }
 
 async function deductTokens(userId, amount, referenceId, requestId = 'unknown') {
