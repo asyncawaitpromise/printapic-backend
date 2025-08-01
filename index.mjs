@@ -1,9 +1,16 @@
 import dotenv from 'dotenv';
 import express from 'express';
+import cors from 'cors';
 
 dotenv.config({ path: `.env.local` })
 
 const app = express();
+
+// CORS middleware
+app.use(cors({
+  origin: ['http://127.0.0.1:3000', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://localhost:5173'],
+  credentials: true
+}));
 
 // Built-in middleware
 app.use(express.json());

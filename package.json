@@ -1,6 +1,7 @@
 {
 	"type": "module",
 	"dependencies": {
+		"cors": "^2.8.5",
 		"dotenv": "^17.0.1",
 		"express": "^5.1.0",
 		"marked": "^11.1.1",
@@ -12,8 +13,8 @@
 		"test": "vitest"
 	},
 	"devDependencies": {
-		"vitest": "^0.34.0",
+		"msw": "^1.2.1",
 		"supertest": "^6.3.3",
-		"msw": "^1.2.1"
+		"vitest": "^0.34.0"
 	}
 }
