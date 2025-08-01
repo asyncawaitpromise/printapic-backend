@@ -25,7 +25,7 @@ app.use(cors({
 app.use(express.json());
 
 app.get("/", (req, res) => {
-    res.send("v0.0.2");
+    res.send("v0.0.3");
 });
 
 // Health-check
@@ -42,44 +42,75 @@ app.get("/me", requireAuth, (req, res) => {
 });
 
 app.post("/process-image", requireAuth, async (req, res) => {
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[${requestId}] 🚀 Process image request started`);
+    console.log(`[${requestId}] 👤 User: ${req.user.id} (${req.user.email})`);
+    console.log(`[${requestId}] 📥 Request body:`, JSON.stringify(req.body, null, 2));
+    
     try {
         const { photoId, operation } = req.body;
         
         if (!photoId || !operation) {
+            console.log(`[${requestId}] ❌ Missing required fields - photoId: ${!!photoId}, operation: ${!!operation}`);
             return res.status(400).json({ error: 'Missing photoId or operation' });
         }
 
+        console.log(`[${requestId}] 🔄 Processing image ${photoId} with operation: ${operation}`);
+        
         const { processImage } = await import('./services/imageProcessor.mjs');
-        const result = await processImage(photoId, operation, req.user);
+        const result = await processImage(photoId, operation, req.user, requestId);
+        
+        console.log(`[${requestId}] ✅ Image processing completed successfully`);
+        console.log(`[${requestId}] 📤 Response:`, JSON.stringify(result, null, 2));
         
         res.json(result);
     } catch (error) {
-        console.error('Image processing error:', error);
+        console.error(`[${requestId}] ❌ Image processing error:`, error);
+        console.error(`[${requestId}] 📊 Error details:`, {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
         res.status(500).json({ error: error.message || 'Failed to process image' });
     }
 });
 
 app.get("/edit-status/:editId", requireAuth, async (req, res) => {
+    const requestId = `status_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[${requestId}] 📊 Edit status request for editId: ${req.params.editId}`);
+    console.log(`[${requestId}] 👤 User: ${req.user.id} (${req.user.email})`);
+    
     try {
         const { editId } = req.params;
         
+        console.log(`[${requestId}] 🔍 Fetching edit record: ${editId}`);
         const edit = await adminPb.collection('printapic_edits').getOne(editId);
+        console.log(`[${requestId}] 📄 Edit found - Status: ${edit.status}, Owner: ${edit.user}`);
         
         // Verify the edit belongs to the user
         if (edit.user !== req.user.id) {
+            console.log(`[${requestId}] ❌ Unauthorized access - Edit owner: ${edit.user}, Request user: ${req.user.id}`);
             return res.status(403).json({ error: 'Unauthorized' });
         }
         
-        res.json({
+        const response = {
             id: edit.id,
             status: edit.status,
             tokens_cost: edit.tokens_cost,
             completed: edit.completed,
             has_result: !!edit.result_image,
             result_url: edit.result_image ? adminPb.files.getUrl(edit, edit.result_image) : null
-        });
+        };
+        
+        console.log(`[${requestId}] ✅ Edit status response:`, JSON.stringify(response, null, 2));
+        res.json(response);
     } catch (error) {
-        console.error('Edit status error:', error);
+        console.error(`[${requestId}] ❌ Edit status error:`, error);
+        console.error(`[${requestId}] 📊 Error details:`, {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
         res.status(500).json({ error: 'Failed to get edit status' });
     }
 });
