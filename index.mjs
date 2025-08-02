@@ -25,7 +25,7 @@ app.use(cors({
 app.use(express.json());
 
 app.get("/", (req, res) => {
-    const version = "v0.0.6";
+    const version = "v0.0.7";
     // Disable caching so clients always fetch the latest version
     res.set({
         'Cache-Control': 'no-cache, no-store, must-revalidate', // HTTP/1.1
