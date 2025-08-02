@@ -25,7 +25,28 @@ app.use(cors({
 app.use(express.json());
 
 app.get("/", (req, res) => {
-    res.send("v0.0.5");
+    const version = "v0.0.6";
+    // Disable caching so clients always fetch the latest version
+    res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate', // HTTP/1.1
+        'Pragma': 'no-cache',                                   // HTTP/1.0
+        'Expires': '0'                                          // Proxies
+    });
+
+    // Serve a tiny HTML page that also contains the same cache-busting meta tags
+    res.type('html').send(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>API version</title>
+</head>
+<body>
+  ${version}
+</body>
+</html>`);
 });
 
 // Health-check
