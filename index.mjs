@@ -25,7 +25,7 @@ app.use(cors({
 app.use(express.json());
 
 app.get("/", (req, res) => {
-    const version = "v0.0.7";
+    const version = "v0.0.8";
     // Disable caching so clients always fetch the latest version
     res.set({
         'Cache-Control': 'no-cache, no-store, must-revalidate', // HTTP/1.1
@@ -155,8 +155,7 @@ app.get("/edit-status/:editId", requireAuth, async (req, res) => {
             status: edit.status,
             tokens_cost: edit.tokens_cost,
             completed: edit.completed,
-            has_result: !!edit.result_image,
-            result_url: edit.result_image ? adminPb.files.getUrl(edit, edit.result_image) : null
+            message: edit.status === 'done' ? 'Processing complete. Check your photos for the result.' : 'Processing in progress.'
         };
         
         console.log(`[${requestId}] ✅ Edit status response:`, JSON.stringify(response, null, 2));

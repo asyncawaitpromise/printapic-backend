@@ -84,7 +84,7 @@ export async function processImage(photoId, operation, user, requestId = 'unknow
             success: true,
             editId: editRecord.id,
             status: 'pending',
-            message: 'Sticker processing started. Check back for results.'
+            message: 'Sticker processing started. A new photo record will be created with the result.'
         };
         
     } catch (error) {
@@ -113,17 +113,24 @@ async function processImageAsync(photo, editId, user, requestId = 'unknown') {
         const processedImageBuffer = await callBFLAPI(imageUrl, requestId);
         console.log(`[${requestId}] ✅ BFL API call completed, received ${processedImageBuffer.length} bytes`);
         
-        // Save the processed image to the edit record
-        console.log(`[${requestId}] 💾 Saving processed image to edit record...`);
-        const formData = new FormData();
+        // Create a new photo record with the processed image
+        console.log(`[${requestId}] 💾 Creating new photo record with processed image...`);
+        const photoFormData = new FormData();
         const blob = new Blob([processedImageBuffer], { type: 'image/png' });
-        formData.append('result_image', blob, `sticker_${photo.id}.png`);
-        formData.append('status', 'done');
-        formData.append('completed', new Date().toISOString());
+        photoFormData.append('image', blob, `sticker_${photo.id}_${Date.now()}.png`);
+        photoFormData.append('user', user.id);
+        photoFormData.append('caption', `Processed sticker from photo ${photo.id}`);
 
         await ensureAdminAuth();
-        await adminPb.collection('printapic_edits').update(editId, formData);
-        console.log(`[${requestId}] ✅ Edit record updated with result image`);
+        const newPhotoRecord = await adminPb.collection('printapic_photos').create(photoFormData);
+        console.log(`[${requestId}] ✅ New photo record created: ${newPhotoRecord.id}`);
+
+        // Update the edit record to mark as done (without result_image since it's now a separate photo)
+        await adminPb.collection('printapic_edits').update(editId, {
+            status: 'done',
+            completed: new Date().toISOString()
+        });
+        console.log(`[${requestId}] ✅ Edit record updated to done status`);
         
         // Deduct tokens from user (assuming 1 token per sticker)
         console.log(`[${requestId}] 💰 Deducting 1 token from user ${user.id}`);
