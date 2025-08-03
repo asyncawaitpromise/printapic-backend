@@ -104,17 +104,17 @@ app.post("/process-image", requireAuth, async (req, res) => {
     console.log(`[${requestId}] 📥 Request body:`, JSON.stringify(req.body, null, 2));
     
     try {
-        const { photoId, operation } = req.body;
+        const { photoId, operation, promptKey } = req.body;
         
         if (!photoId || !operation) {
             console.log(`[${requestId}] ❌ Missing required fields - photoId: ${!!photoId}, operation: ${!!operation}`);
             return res.status(400).json({ error: 'Missing photoId or operation' });
         }
 
-        console.log(`[${requestId}] 🔄 Processing image ${photoId} with operation: ${operation}`);
+        console.log(`[${requestId}] 🔄 Processing image ${photoId} with operation: ${operation}, promptKey: ${promptKey}`);
         
         const { processImage } = await import('./services/imageProcessor.mjs');
-        const result = await processImage(photoId, operation, req.user, requestId);
+        const result = await processImage(photoId, operation, req.user, requestId, promptKey);
         
         console.log(`[${requestId}] ✅ Image processing completed successfully`);
         console.log(`[${requestId}] 📤 Response:`, JSON.stringify(result, null, 2));

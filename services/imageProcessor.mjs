@@ -1,6 +1,15 @@
 import { adminPb, ensureAdminAuth } from '../pbClient.mjs';
 
-export async function processImage(photoId, operation, user, requestId = 'unknown') {
+// Prompt mapping for different styles
+const PROMPT_MAP = {
+    'sticker': 'cut out the main subject and replace the background with white.',
+    'line-art': 'convert this image to clean black and white line art with minimal shading, emphasizing outlines and key details.',
+    'van-gogh': 'transform this image in the style of Vincent van Gogh with swirling brushstrokes, vibrant colors, and expressive texture.',
+    'manga-style': 'convert this image to manga/anime art style with bold outlines, cell shading, and expressive features.',
+    'oil-painting': 'render this image as a classical oil painting with rich textures, blended colors, and painterly brushstrokes.'
+};
+
+export async function processImage(photoId, operation, user, requestId = 'unknown', promptKey = 'sticker') {
     try {
         console.log(`[${requestId}] 🔍 Verifying photo ${photoId} exists and belongs to user ${user.id}`);
         
@@ -64,6 +73,14 @@ export async function processImage(photoId, operation, user, requestId = 'unknow
             throw new Error(`Unsupported operation: ${operation}. Only 'sticker' is supported.`);
         }
         console.log(`[${requestId}] ✅ Operation '${operation}' is supported`);
+        
+        // Check if promptKey is supported
+        if (!PROMPT_MAP[promptKey]) {
+            console.log(`[${requestId}] ❌ Unsupported promptKey: ${promptKey}`);
+            const validKeys = Object.keys(PROMPT_MAP).join(', ');
+            throw new Error(`Unsupported promptKey: ${promptKey}. Valid options are: ${validKeys}`);
+        }
+        console.log(`[${requestId}] ✅ PromptKey '${promptKey}' is supported`);
 
         // Create an edit record in pending status
         console.log(`[${requestId}] 💾 Creating edit record...`);
@@ -77,14 +94,14 @@ export async function processImage(photoId, operation, user, requestId = 'unknow
         console.log(`[${requestId}] ✅ Edit record created: ${editRecord.id}`);
 
         // Process the image with BFL in the background
-        console.log(`[${requestId}] 🚀 Starting background processing for edit ${editRecord.id}`);
-        processImageAsync(photo, editRecord.id, user, requestId);
+        console.log(`[${requestId}] 🚀 Starting background processing for edit ${editRecord.id} with promptKey: ${promptKey}`);
+        processImageAsync(photo, editRecord.id, user, requestId, promptKey);
         
         return {
             success: true,
             editId: editRecord.id,
             status: 'pending',
-            message: 'Sticker processing started. A new photo record will be created with the result.'
+            message: `${promptKey} processing started. A new photo record will be created with the result.`
         };
         
     } catch (error) {
@@ -93,7 +110,7 @@ export async function processImage(photoId, operation, user, requestId = 'unknow
     }
 }
 
-async function processImageAsync(photo, editId, user, requestId = 'unknown') {
+async function processImageAsync(photo, editId, user, requestId = 'unknown', promptKey = 'sticker') {
     try {
         console.log(`[${requestId}] 🔄 Background processing started for edit ${editId}`);
         
@@ -109,17 +126,17 @@ async function processImageAsync(photo, editId, user, requestId = 'unknown') {
         console.log(`[${requestId}] 🌐 Image URL generated: ${imageUrl}`);
         
         // Call BFL API
-        console.log(`[${requestId}] 🤖 Calling BFL API...`);
-        const processedImageBuffer = await callBFLAPI(imageUrl, requestId);
+        console.log(`[${requestId}] 🤖 Calling BFL API with promptKey: ${promptKey}...`);
+        const processedImageBuffer = await callBFLAPI(imageUrl, requestId, promptKey);
         console.log(`[${requestId}] ✅ BFL API call completed, received ${processedImageBuffer.length} bytes`);
         
         // Create a new photo record with the processed image
         console.log(`[${requestId}] 💾 Creating new photo record with processed image...`);
         const photoFormData = new FormData();
         const blob = new Blob([processedImageBuffer], { type: 'image/png' });
-        photoFormData.append('image', blob, `sticker_${photo.id}_${Date.now()}.png`);
+        photoFormData.append('image', blob, `${promptKey}_${photo.id}_${Date.now()}.png`);
         photoFormData.append('user', user.id);
-        photoFormData.append('caption', `Processed sticker from photo ${photo.id}`);
+        photoFormData.append('caption', `Processed ${promptKey} from photo ${photo.id}`);
 
         await ensureAdminAuth();
         const newPhotoRecord = await adminPb.collection('printapic_photos').create(photoFormData);
@@ -137,7 +154,7 @@ async function processImageAsync(photo, editId, user, requestId = 'unknown') {
         await deductTokens(user.id, 1, editId, requestId);
         console.log(`[${requestId}] ✅ Token deduction completed`);
         
-        console.log(`[${requestId}] ✅ Sticker processing completed for edit ${editId}`);
+        console.log(`[${requestId}] ✅ ${promptKey} processing completed for edit ${editId}`);'
         
     } catch (error) {
         console.error(`[${requestId}] ❌ Processing failed for edit ${editId}:`, error);
@@ -157,7 +174,7 @@ async function processImageAsync(photo, editId, user, requestId = 'unknown') {
     }
 }
 
-async function callBFLAPI(imageUrl, requestId = 'unknown') {
+async function callBFLAPI(imageUrl, requestId = 'unknown', promptKey = 'sticker') {
     const BFL_KEY = process.env.BFL_KEY;
     if (!BFL_KEY) {
         console.error(`[${requestId}] ❌ BFL_KEY not found in environment variables`);
@@ -165,7 +182,8 @@ async function callBFLAPI(imageUrl, requestId = 'unknown') {
     }
     console.log(`[${requestId}] ✅ BFL_KEY found in environment`);
 
-    const prompt = "cut out the main subject and replace the background with white.";
+    const prompt = PROMPT_MAP[promptKey] || PROMPT_MAP['sticker'];
+    console.log(`[${requestId}] 📝 Using prompt for '${promptKey}': "${prompt}"`);
     
     try {
         // First, get the image data
@@ -198,7 +216,6 @@ async function callBFLAPI(imageUrl, requestId = 'unknown') {
         
         // Call BFL API
         console.log(`[${requestId}] 🚀 Making API call to BFL flux-kontext-pro...`);
-        console.log(`[${requestId}] 📝 Using prompt: "${prompt}"`);
         const startTime = Date.now();
         const response = await fetch('https://api.bfl.ai/v1/flux-kontext-pro', {
             method: 'POST',
@@ -331,7 +348,7 @@ async function deductTokens(userId, amount, referenceId, requestId = 'unknown') 
         const transaction = await adminPb.collection('printapic_token_transactions').create({
             user: userId,
             amount: -amount,
-            reason: 'Sticker processing',
+            reason: `${promptKey} processing`,
             reference_id: referenceId
         });
         console.log(`[${requestId}] ✅ Token transaction recorded: ${transaction.id}`);
