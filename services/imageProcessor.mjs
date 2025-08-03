@@ -154,7 +154,7 @@ async function processImageAsync(photo, editId, user, requestId = 'unknown', pro
         await deductTokens(user.id, 1, editId, requestId);
         console.log(`[${requestId}] ✅ Token deduction completed`);
         
-        console.log(`[${requestId}] ✅ ${promptKey} processing completed for edit ${editId}`);'
+        console.log(`[${requestId}] ✅ ${promptKey} processing completed for edit ${editId}`);
         
     } catch (error) {
         console.error(`[${requestId}] ❌ Processing failed for edit ${editId}:`, error);
