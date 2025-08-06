@@ -171,6 +171,171 @@ app.get("/edit-status/:editId", requireAuth, async (req, res) => {
     }
 });
 
+app.post("/api/orders", requireAuth, async (req, res) => {
+    const requestId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[${requestId}] 🛒 Order creation request started`);
+    console.log(`[${requestId}] 👤 User: ${req.user.id} (${req.user.email})`);
+    console.log(`[${requestId}] 📥 Request body:`, JSON.stringify(req.body, null, 2));
+    
+    try {
+        const { items, shippingAddress } = req.body;
+        
+        // Validate request structure
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            console.log(`[${requestId}] ❌ Missing or empty items array`);
+            return res.status(400).json({ error: 'Missing or empty items array' });
+        }
+        
+        if (!shippingAddress || typeof shippingAddress !== 'object') {
+            console.log(`[${requestId}] ❌ Missing or invalid shipping address`);
+            return res.status(400).json({ error: 'Missing or invalid shipping address' });
+        }
+        
+        // Validate shipping address structure
+        const requiredAddressFields = ['name', 'addressLine1'];
+        for (const field of requiredAddressFields) {
+            if (!shippingAddress[field]) {
+                console.log(`[${requestId}] ❌ Missing required shipping address field: ${field}`);
+                return res.status(400).json({ error: `Missing required shipping address field: ${field}` });
+            }
+        }
+        
+        await ensureAdminAuth();
+        
+        // Validate each order item and collect edit IDs
+        const editIds = [];
+        let totalTokenCost = 0;
+        const tokenCostPerSticker = 5; // Base cost per sticker
+        
+        console.log(`[${requestId}] 🔍 Validating ${items.length} order items`);
+        
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            console.log(`[${requestId}] 📦 Validating item ${i + 1}:`, JSON.stringify(item, null, 2));
+            
+            // Validate item structure
+            if (!item.photoId || !item.editId || !item.size || !item.quantity) {
+                console.log(`[${requestId}] ❌ Item ${i + 1} missing required fields`);
+                return res.status(400).json({ error: `Item ${i + 1} missing required fields (photoId, editId, size, quantity)` });
+            }
+            
+            if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+                console.log(`[${requestId}] ❌ Item ${i + 1} invalid quantity: ${item.quantity}`);
+                return res.status(400).json({ error: `Item ${i + 1} has invalid quantity` });
+            }
+            
+            // Validate that photo exists and belongs to user
+            try {
+                const photo = await adminPb.collection('printapic_photos').getOne(item.photoId);
+                if (photo.user !== req.user.id) {
+                    console.log(`[${requestId}] ❌ Photo ${item.photoId} does not belong to user`);
+                    return res.status(403).json({ error: 'Access denied to specified photo' });
+                }
+                console.log(`[${requestId}] ✅ Photo ${item.photoId} validated`);
+            } catch (error) {
+                console.log(`[${requestId}] ❌ Photo ${item.photoId} not found:`, error.message);
+                return res.status(404).json({ error: `Photo ${item.photoId} not found` });
+            }
+            
+            // Validate that edit exists, belongs to user, and is completed
+            try {
+                const edit = await adminPb.collection('printapic_edits').getOne(item.editId);
+                if (edit.user !== req.user.id) {
+                    console.log(`[${requestId}] ❌ Edit ${item.editId} does not belong to user`);
+                    return res.status(403).json({ error: 'Access denied to specified edit' });
+                }
+                if (edit.status !== 'done') {
+                    console.log(`[${requestId}] ❌ Edit ${item.editId} not completed (status: ${edit.status})`);
+                    return res.status(400).json({ error: `Edit ${item.editId} is not completed` });
+                }
+                if (edit.photo !== item.photoId) {
+                    console.log(`[${requestId}] ❌ Edit ${item.editId} does not belong to photo ${item.photoId}`);
+                    return res.status(400).json({ error: 'Edit does not belong to specified photo' });
+                }
+                console.log(`[${requestId}] ✅ Edit ${item.editId} validated`);
+                editIds.push(item.editId);
+            } catch (error) {
+                console.log(`[${requestId}] ❌ Edit ${item.editId} not found:`, error.message);
+                return res.status(404).json({ error: `Edit ${item.editId} not found` });
+            }
+            
+            // Calculate token cost for this item
+            const itemCost = tokenCostPerSticker * item.quantity;
+            totalTokenCost += itemCost;
+            console.log(`[${requestId}] 💰 Item ${i + 1} cost: ${itemCost} tokens (${item.quantity} × ${tokenCostPerSticker})`);
+        }
+        
+        console.log(`[${requestId}] 💰 Total order cost: ${totalTokenCost} tokens`);
+        
+        // Check user has sufficient tokens
+        const currentUser = await adminPb.collection('printapic_users').getOne(req.user.id);
+        console.log(`[${requestId}] 👤 User token balance: ${currentUser.tokens}`);
+        
+        if (currentUser.tokens < totalTokenCost) {
+            console.log(`[${requestId}] ❌ Insufficient tokens - Required: ${totalTokenCost}, Available: ${currentUser.tokens}`);
+            return res.status(400).json({ 
+                error: 'Insufficient tokens', 
+                required: totalTokenCost, 
+                available: currentUser.tokens 
+            });
+        }
+        
+        // Create order record
+        const orderData = {
+            user: req.user.id,
+            edits: editIds,
+            shipping_address: shippingAddress,
+            tokens_cost: totalTokenCost,
+            order_details: {
+                items: items,
+                timestamp: new Date().toISOString()
+            }
+        };
+        
+        console.log(`[${requestId}] 📝 Creating order record`);
+        const order = await adminPb.collection('printapic_orders').create(orderData);
+        console.log(`[${requestId}] ✅ Order created with ID: ${order.id}`);
+        
+        // Deduct tokens atomically
+        console.log(`[${requestId}] 💸 Deducting ${totalTokenCost} tokens from user balance`);
+        const newTokenBalance = currentUser.tokens - totalTokenCost;
+        await adminPb.collection('printapic_users').update(req.user.id, {
+            tokens: newTokenBalance
+        });
+        
+        // Create token transaction record for audit trail
+        console.log(`[${requestId}] 📊 Recording token transaction`);
+        await adminPb.collection('printapic_token_transactions').create({
+            user: req.user.id,
+            amount: -totalTokenCost,
+            reason: `Order #${order.id}`,
+            reference_id: order.id
+        });
+        
+        const response = {
+            success: true,
+            orderId: order.id,
+            status: order.status,
+            tokensDeducted: totalTokenCost,
+            remainingTokens: newTokenBalance,
+            message: 'Order created successfully'
+        };
+        
+        console.log(`[${requestId}] ✅ Order creation completed successfully`);
+        console.log(`[${requestId}] 📤 Response:`, JSON.stringify(response, null, 2));
+        
+        res.status(201).json(response);
+    } catch (error) {
+        console.error(`[${requestId}] ❌ Order creation error:`, error);
+        console.error(`[${requestId}] 📊 Error details:`, {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
+        res.status(500).json({ error: error.message || 'Failed to create order' });
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {

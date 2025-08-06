@@ -222,6 +222,7 @@ const main = async () => {
         { name: 'user', type: 'relation', required: true, collectionId: usersCol.id, maxSelect: 1, cascadeDelete: false },
         { name: 'edits', type: 'relation', required: true, collectionId: edits.id, cascadeDelete: false, maxSelect: 20 },
         { name: 'shipping_address', type: 'json', required: true },
+        { name: 'order_details', type: 'json', required: true },
         {
           name: 'status',
           type: 'select',
