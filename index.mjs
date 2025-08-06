@@ -205,7 +205,11 @@ app.post("/api/orders", requireAuth, async (req, res) => {
         // Validate each order item and collect edit IDs
         const editIds = [];
         let totalTokenCost = 0;
-        const tokenCostPerSticker = 5; // Base cost per sticker
+        const pricingMap = {
+            'small': 200,
+            'medium': 250,
+            'large': 300
+        };
         
         console.log(`[${requestId}] 🔍 Validating ${items.length} order items`);
         
@@ -222,6 +226,13 @@ app.post("/api/orders", requireAuth, async (req, res) => {
             if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
                 console.log(`[${requestId}] ❌ Item ${i + 1} invalid quantity: ${item.quantity}`);
                 return res.status(400).json({ error: `Item ${i + 1} has invalid quantity` });
+            }
+            
+            // Validate size
+            const size = item.size.toLowerCase();
+            if (!pricingMap[size]) {
+                console.log(`[${requestId}] ❌ Item ${i + 1} invalid size: ${item.size}`);
+                return res.status(400).json({ error: `Item ${i + 1} has invalid size. Must be small, medium, or large` });
             }
             
             // Validate that photo exists and belongs to user
@@ -260,9 +271,10 @@ app.post("/api/orders", requireAuth, async (req, res) => {
             }
             
             // Calculate token cost for this item
-            const itemCost = tokenCostPerSticker * item.quantity;
+            const pricePerSticker = pricingMap[size];
+            const itemCost = pricePerSticker * item.quantity;
             totalTokenCost += itemCost;
-            console.log(`[${requestId}] 💰 Item ${i + 1} cost: ${itemCost} tokens (${item.quantity} × ${tokenCostPerSticker})`);
+            console.log(`[${requestId}] 💰 Item ${i + 1} cost: ${itemCost} tokens (${item.quantity} × ${pricePerSticker} for ${size})`);
         }
         
         console.log(`[${requestId}] 💰 Total order cost: ${totalTokenCost} tokens`);
