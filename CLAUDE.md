@@ -53,7 +53,7 @@ This is a Node.js Express backend for Printapic, a photo editing and printing se
 ### Image Processing
 
 **Service** (`services/imageProcessor.mjs`)
-- Supports multiple prompt styles: sticker, line-art, van-gogh, manga-style, oil-painting
+- Supports multiple prompt styles: sticker, line-art, van-gogh, manga-style, oil-painting, business-photo, beach-vacation, space-explorer, medieval-knight
 - Creates new photo records for processed results
 - Integrates with external image processing API using BFL_KEY
 

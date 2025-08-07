@@ -4,7 +4,7 @@ A Node.js Express backend for Printapic, a photo editing and printing service th
 
 ## Features
 
-- **Photo Processing**: AI-powered image editing with multiple style presets (sticker, line-art, van-gogh, manga-style, oil-painting)
+- **Photo Processing**: AI-powered image editing with style presets and transport options (sticker, line-art, van-gogh, manga-style, oil-painting, business-photo, beach-vacation, space-explorer, medieval-knight)
 - **Order Management**: Create and manage print orders with size-based pricing
 - **Token System**: User token balances with transaction audit trails
 - **Authentication**: PocketBase JWT-based authentication

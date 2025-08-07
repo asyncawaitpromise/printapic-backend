@@ -6,7 +6,11 @@ const PROMPT_MAP = {
     'line-art': 'convert this image to clean black and white line art with minimal shading, emphasizing outlines and key details.',
     'van-gogh': 'transform this image in the style of Vincent van Gogh with swirling brushstrokes, vibrant colors, and expressive texture.',
     'manga-style': 'convert this image to manga/anime art style with bold outlines, cell shading, and expressive features.',
-    'oil-painting': 'render this image as a classical oil painting with rich textures, blended colors, and painterly brushstrokes.'
+    'oil-painting': 'render this image as a classical oil painting with rich textures, blended colors, and painterly brushstrokes.',
+    'business-photo': 'transport the subject into a professional business setting wearing a suit, with a modern office background and professional lighting.',
+    'beach-vacation': 'transport the subject to a tropical beach paradise with palm trees, white sand, and crystal blue ocean in the background.',
+    'space-explorer': 'transport the subject into a futuristic space environment wearing a sleek space suit, with a starfield and distant planets in the background.',
+    'medieval-knight': 'transport the subject into a medieval fantasy setting as a noble knight wearing armor, with a castle and dramatic sky in the background.'
 };
 
 export async function processImage(photoId, operation, user, requestId = 'unknown', promptKey = 'sticker') {
