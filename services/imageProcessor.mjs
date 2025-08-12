@@ -211,11 +211,10 @@ async function callBFLAPI(imageUrl, requestId = 'unknown', promptKey = 'sticker'
         const payload = {
             prompt: prompt,
             input_image: base64Image,
-            seed: 42,
             aspect_ratio: "1:1",
-            output_format: "jpeg",
+            output_format: "png",
             prompt_upsampling: false,
-            safety_tolerance: 2
+            safety_tolerance: 6
         };
         
         // Call BFL API
