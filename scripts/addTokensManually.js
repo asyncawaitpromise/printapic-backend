@@ -5,10 +5,10 @@ import readline from 'readline';
 dotenv.config({ path: `.env.local` });
 
 /**
- * Manual Token Addition Script
+ * Manual Token Management Script
  * 
- * This script allows manual addition of tokens to a user account.
- * It simulates the purchase process by creating payment and transaction records.
+ * This script allows manual addition or removal of tokens from a user account.
+ * It simulates the purchase/refund process by creating payment and transaction records.
  * 
  * Usage:
  *   node scripts/addTokensManually.js
@@ -63,6 +63,10 @@ const addTokensToUser = async (userId, tokenAmount) => {
   const user = await pb.collection('printapic_users').getOne(userId);
   const newTokenBalance = user.tokens + tokenAmount;
   
+  if (newTokenBalance < 0) {
+    throw new Error(`Cannot remove ${Math.abs(tokenAmount)} tokens. User only has ${user.tokens} tokens.`);
+  }
+  
   await pb.collection('printapic_users').update(userId, {
     tokens: newTokenBalance
   });
@@ -72,13 +76,14 @@ const addTokensToUser = async (userId, tokenAmount) => {
 
 const createPaymentRecord = async (userId, tokenAmount) => {
   const pricePerToken = 0.10; // $0.10 per token
-  const amountCents = Math.round(tokenAmount * pricePerToken * 100);
+  const amountCents = Math.round(Math.abs(tokenAmount) * pricePerToken * 100);
+  const isRemoval = tokenAmount < 0;
   
   const paymentData = {
     user: userId,
     stripe_session_id: `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    price_id: 'manual_addition',
-    amount_cents: amountCents,
+    price_id: isRemoval ? 'manual_removal' : 'manual_addition',
+    amount_cents: isRemoval ? -amountCents : amountCents,
     tokens: tokenAmount,
     status: 'complete'
   };
@@ -88,10 +93,11 @@ const createPaymentRecord = async (userId, tokenAmount) => {
 };
 
 const createTokenTransaction = async (userId, tokenAmount, paymentId) => {
+  const isRemoval = tokenAmount < 0;
   const transactionData = {
     user: userId,
     amount: tokenAmount,
-    reason: 'Manual token addition',
+    reason: isRemoval ? 'Manual token removal' : 'Manual token addition',
     reference_id: paymentId
   };
   
@@ -126,18 +132,20 @@ const main = async () => {
     console.log(`   Current token balance: ${user.tokens}`);
     
     // Prompt for token amount
-    const tokenInput = await promptUser(rl, 'Enter number of tokens to add: ');
+    const tokenInput = await promptUser(rl, 'Enter number of tokens to add (negative to remove): ');
     const tokenAmount = parseInt(tokenInput, 10);
     
-    if (isNaN(tokenAmount) || tokenAmount <= 0) {
-      console.log('❌ Invalid token amount. Must be a positive number.');
+    if (isNaN(tokenAmount) || tokenAmount === 0) {
+      console.log('❌ Invalid token amount. Must be a non-zero number.');
       process.exit(1);
     }
     
     // Confirm the action
     const pricePerToken = 0.10;
-    const totalCost = (tokenAmount * pricePerToken).toFixed(2);
-    console.log(`\nYou are about to add ${tokenAmount} tokens (simulated cost: $${totalCost})`);
+    const totalCost = (Math.abs(tokenAmount) * pricePerToken).toFixed(2);
+    const action = tokenAmount > 0 ? 'add' : 'remove';
+    const absTokenAmount = Math.abs(tokenAmount);
+    console.log(`\nYou are about to ${action} ${absTokenAmount} tokens (simulated ${tokenAmount > 0 ? 'cost' : 'refund'}: $${totalCost})`);
     const confirm = await promptUser(rl, 'Continue? (y/N): ');
     
     if (confirm.toLowerCase() !== 'y' && confirm.toLowerCase() !== 'yes') {
@@ -145,27 +153,27 @@ const main = async () => {
       process.exit(0);
     }
     
-    console.log('\n⏳ Processing token addition...');
+    console.log(`\n⏳ Processing token ${tokenAmount > 0 ? 'addition' : 'removal'}...`);
     
     // Create payment record
     const payment = await createPaymentRecord(userId, tokenAmount);
     console.log(`✅ Payment record created: ${payment.id}`);
     
-    // Add tokens to user
+    // Add/remove tokens from user
     const newBalance = await addTokensToUser(userId, tokenAmount);
-    console.log(`✅ Tokens added to user. New balance: ${newBalance}`);
+    console.log(`✅ Tokens ${tokenAmount > 0 ? 'added to' : 'removed from'} user. New balance: ${newBalance}`);
     
     // Create transaction record
     const transaction = await createTokenTransaction(userId, tokenAmount, payment.id);
     console.log(`✅ Transaction record created: ${transaction.id}`);
     
-    console.log('\n🎉 Token addition completed successfully!');
+    console.log(`\n🎉 Token ${tokenAmount > 0 ? 'addition' : 'removal'} completed successfully!`);
     console.log(`   User: ${user.email || user.username || userId}`);
-    console.log(`   Tokens added: ${tokenAmount}`);
+    console.log(`   Tokens ${tokenAmount > 0 ? 'added' : 'removed'}: ${Math.abs(tokenAmount)}`);
     console.log(`   New balance: ${newBalance}`);
     
   } catch (error) {
-    console.error('\n❌ Token addition failed:');
+    console.error(`\n❌ Token ${tokenAmount > 0 ? 'addition' : 'removal'} failed:`);
     if (error.response && typeof error.response === 'object') {
       console.error('API Error:', error.message);
       console.error(`Status: ${error.status}`);
